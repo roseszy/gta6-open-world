@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solmar Heat — Open World Crime Game</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1a2b1a; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
+  .hidden { display: none !important; }
+  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+  /* HUD */
+  #hud { position: fixed; inset: 0; pointer-events: none; color: #fff; }
+  .panel { background: rgba(10, 14, 10, 0.62); border: 1px solid rgba(255,255,255,0.25); border-radius: 10px; padding: 8px 12px; }
+  #top-left { position: absolute; top: 14px; left: 14px; }
+  #health-bar { width: 190px; height: 14px; background: rgba(255,255,255,0.22); border-radius: 7px; overflow: hidden; }
+  #health-fill { height: 100%; width: 100%; background: #4caf50; border-radius: 7px; transition: width 0.2s; }
+  #health-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-weight: 700; font-size: 14px; }
+  #money { font-size: 22px; font-weight: 800; color: #7de07d; text-shadow: 0 1px 2px rgba(0,0,0,0.6); }
+  #top-right { position: absolute; top: 14px; right: 14px; text-align: right; }
+  #stars { font-size: 26px; letter-spacing: 3px; color: #ffd94d; text-shadow: 0 2px 3px rgba(0,0,0,0.7); }
+  #stars.hot { animation: pulse 0.7s infinite alternate; }
+  @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.08); } }
+  #wanted-label { font-size: 11px; letter-spacing: 2px; opacity: 0.85; }
+  #objective { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); max-width: 46vw; text-align: center; font-size: 15px; font-weight: 600; }
+  #dialog { position: absolute; bottom: 118px; left: 50%; transform: translateX(-50%); max-width: 640px; text-align: center; font-size: 16px; line-height: 1.45; background: rgba(10, 14, 10, 0.72); border-left: 4px solid #e8c33a; }
+  #speed { position: absolute; bottom: 16px; left: 16px; font-size: 20px; font-weight: 800; }
+  #hint { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); font-size: 12px; opacity: 0.85; text-align: center; }
+  #minimap-wrap { position: absolute; bottom: 14px; right: 14px; }
+  #minimap { display: block; border: 2px solid rgba(255,255,255,0.55); border-radius: 8px; background: #2c3a2a; }
+
+  /* Overlays */
+  .overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: linear-gradient(160deg, rgba(20,16,8,0.82), rgba(8,20,32,0.86)); color: #fff; z-index: 10; }
+  .card { max-width: 620px; padding: 34px 40px; text-align: center; background: rgba(12, 18, 14, 0.88); border: 1px solid rgba(232,195,58,0.5); border-radius: 16px; box-shadow: 0 18px 60px rgba(0,0,0,0.55); }
+  .card h1 { margin: 0 0 4px; font-size: 52px; letter-spacing: 3px; color: #ffd94d; text-shadow: 0 3px 0 #b0503f, 0 6px 18px rgba(0,0,0,0.6); }
+  .card h2 { margin: 0 0 14px; font-size: 15px; letter-spacing: 4px; font-weight: 600; color: #9fd8ff; text-transform: uppercase; }
+  .card p { font-size: 16px; line-height: 1.55; color: #e8e4d8; }
+  .card .controls { font-size: 13.5px; line-height: 1.8; color: #cfc9b8; text-align: left; display: inline-block; margin: 8px auto 4px; }
+  .card .controls b { color: #ffd94d; }
+  button { pointer-events: auto; margin: 10px 6px 0; padding: 12px 26px; font-size: 17px; font-weight: 700; color: #1a1a1a; background: #ffd94d; border: none; border-radius: 10px; cursor: pointer; box-shadow: 0 4px 0 #b08a1e; }
+  button:hover { background: #ffe47a; }
+  button.secondary { background: #e8e4d8; box-shadow: 0 4px 0 #9a958a; }
+  #end-title { font-size: 58px; color: #ff5a4d; }
+</style>
+</head>
+<body>
+<canvas id="game" aria-label="Solmar Heat: an open-world crime game. Walk the streets of Solmar City, steal cars, outrun the police and run missions for Mara Voss."></canvas>
+<p id="status" role="status" aria-live="polite"></p>
+
+<div id="hud">
+  <div id="top-left" class="panel">
+    <div id="health-bar"><div id="health-fill"></div></div>
+    <div id="health-row"><span>♥ <span id="health-text">100</span></span><span id="money">$40</span></div>
+  </div>
+  <div id="top-right" class="panel">
+    <div id="stars">☆☆☆☆☆</div>
+    <div id="wanted-label">WANTED</div>
+  </div>
+  <div id="objective" class="panel">◆ Welcome to Solmar City</div>
+  <div id="dialog" class="panel hidden"></div>
+  <div id="speed" class="panel hidden">0 km/h</div>
+  <div id="hint">WASD move · Shift run · E enter / steal car · Click shoot · Space handbrake · Esc pause · M mute</div>
+  <div id="minimap-wrap"><canvas id="minimap" width="216" height="156"></canvas></div>
+</div>
+
+<div id="menu-screen" class="overlay">
+  <div class="card">
+    <h1>SOLMAR HEAT</h1>
+    <h2>An open-world crime game</h2>
+    <p>Leo Cruz just rolled into Solmar City with $40 and a dead phone. The fixer Mara Voss has work — if he can drive. Steal cars, outrun the Solmar PD, run missions across a sun-soaked city, and make the streets pay.</p>
+    <div class="controls">
+      <b>WASD / Arrows</b> — walk &amp; drive &nbsp;·&nbsp; <b>Shift</b> — run<br>
+      <b>E</b> — enter / steal a car &nbsp;·&nbsp; <b>Click</b> — shoot &nbsp;·&nbsp; <b>Space</b> — handbrake<br>
+      <b>Esc</b> — pause &amp; save &nbsp;·&nbsp; <b>M</b> — mute
+    </div>
+    <br>
+    <button id="start-button">New Game</button>
+    <button id="continue-button" class="secondary hidden">Continue</button>
+  </div>
+</div>
+
+<div id="pause-screen" class="overlay hidden">
+  <div class="card">
+    <h1 style="font-size: 40px;">PAUSED</h1>
+    <p>Solmar City waits for no one — except right now.</p>
+    <button id="resume-button">Resume</button>
+    <button id="save-button" class="secondary">Save</button>
+    <button id="restart-button" class="secondary">Restart</button>
+    <button id="menu-button" class="secondary">Main Menu</button>
+  </div>
+</div>
+
+<div id="end-screen" class="overlay hidden">
+  <div class="card">
+    <h1 id="end-title">BUSTED</h1>
+    <p id="end-text"></p>
+    <button id="end-button">Back on the streets</button>
+  </div>
+</div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
